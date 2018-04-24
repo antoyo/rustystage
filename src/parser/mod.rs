@@ -1,3 +1,7 @@
+use std::result;
+
+pub type Result<T> = result::Result<T, String>;
+
 /*
 
 # Table
@@ -37,6 +41,179 @@ X + 6	2 bytes	Length of one element (in hexa)
 This can't be described here, it depends on each class.
 
 */
+
+// TODO: remove fields only useful for parsing?
+
+pub struct Class {
+    pub name: Vec<u8>,
+    pub element_count: u16,
+    pub element_length: u16,
+    pub kind: ClassKind,
+}
+
+pub struct ClassDescription {
+    pub name: Vec<u8>,
+    pub address: u32,
+    pub len: u32,
+}
+
+pub enum ClassKind {
+    Gplb(Vec<GplbElement>),
+    Tplb(Vec<TplbElement>),
+}
+
+pub struct GplbElement {
+    pub id: u16,
+    pub association: u16,
+    pub title_id: u16,
+}
+
+pub struct Table {
+    pub classes: Vec<Class>,
+    pub class_descriptions: Vec<ClassDescription>,
+    pub class_count: u8,
+    pub name: Vec<u8>,
+}
+
+pub struct TplbElement {
+    pub title_id: u16,
+}
+
+pub fn parse_table(buffer: &[u8]) -> Result<Table> {
+    let mut parser = Parser::new(buffer);
+    parser.table()
+}
+
+struct Parser<'a> {
+    buffer: &'a [u8],
+    index: usize,
+}
+
+impl<'a> Parser<'a> {
+    fn new(buffer: &'a [u8]) -> Self {
+        Self {
+            buffer,
+            index: 0,
+        }
+    }
+
+    fn klass(&mut self, class_description: &ClassDescription) -> Result<Class> {
+        let current_index = self.index;
+        self.take(class_description.address as usize - current_index)?;
+        let name = self.take(4)?.to_vec();
+        let element_count = self.u16()?;
+        let element_length = self.u16()?;
+        let kind = self.kind(&name, element_count)?;
+        Ok(Class {
+            name,
+            element_count,
+            element_length,
+            kind,
+        })
+    }
+
+    fn class_description(&mut self) -> Result<ClassDescription> {
+        let name = self.take(4)?.to_vec();
+        let address = self.u32()?;
+        let len = self.u32()?;
+        self.take(4)?;
+        Ok(ClassDescription {
+            name,
+            address,
+            len,
+        })
+    }
+
+    fn kind(&mut self, name: &[u8], element_count: u16) -> Result<ClassKind> {
+        match name {
+            b"GPLB" => {
+                let mut elements = vec![];
+                for _ in 0..element_count {
+                    let id = self.u16()?;
+                    let association = self.u16()?;
+                    let title_id = self.u16()?;
+                    self.take(2)?;
+                    elements.push(GplbElement {
+                        id,
+                        association,
+                        title_id,
+                    });
+                }
+                Ok(ClassKind::Gplb(elements))
+            },
+            b"TPLB" => {
+                let mut elements = vec![];
+                for _ in 0..element_count {
+                    let title_id = self.u16()?;
+                    elements.push(TplbElement {
+                        title_id,
+                    });
+                }
+                Ok(ClassKind::Tplb(elements))
+            },
+            _ => Err(format!("Unknown class kind {}", String::from_utf8_lossy(name))),
+        }
+    }
+
+    fn table(&mut self) -> Result<Table> {
+        let name = self.take(4)?.to_vec();
+        self.eat_u32(0x01010000)?;
+        let class_count = self.u8()?;
+        let current_index = self.index;
+        self.take(16 - current_index)?;
+        let mut classes = vec![];
+        let mut class_descriptions = vec![];
+        for _ in 0..class_count {
+            class_descriptions.push(self.class_description()?);
+        }
+        for class_description in &class_descriptions {
+            classes.push(self.klass(&class_description)?);
+        }
+        Ok(Table {
+            classes,
+            class_descriptions,
+            class_count,
+            name,
+        })
+    }
+
+    fn eat_u32(&mut self, num: u32) -> Result<()> {
+        let bytes = self.take(4)?;
+        let actual = (bytes[0] as u32) << 24 | (bytes[1] as u32) << 16 | (bytes[2] as u32) << 8 | bytes[3] as u32;
+        if num == actual {
+            Ok(())
+        }
+        else {
+            Err(format!("Expected number {:x}, actual number {:x}", num, actual))
+        }
+    }
+
+    fn take(&mut self, len: usize) -> Result<&[u8]> {
+        if self.buffer.len() - self.index >= len {
+            let index = self.index;
+            self.index += len;
+            Ok(&self.buffer[index..index + len])
+        }
+        else {
+            Err(format!("Trying to take a slice of len {} in the buffer of len {}", len, self.buffer.len()))
+        }
+    }
+
+    fn u16(&mut self) -> Result<u16> {
+        let bytes = self.take(4)?;
+        Ok((bytes[2] as u16) << 8 | bytes[3] as u16)
+    }
+
+    fn u32(&mut self) -> Result<u32> {
+        let bytes = self.take(4)?;
+        Ok((bytes[0] as u32) << 24 | (bytes[1] as u32) << 16 | (bytes[2] as u32) << 8 | bytes[3] as u32)
+    }
+
+    fn u8(&mut self) -> Result<u8> {
+        let bytes = self.take(1)?;
+        Ok(bytes[0])
+    }
+}
 
 /*
 

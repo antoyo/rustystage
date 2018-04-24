@@ -92,6 +92,50 @@ magik_key: 0x ff ff 03 90 da 10 To be studied. Present in files : 03GINF 04CNTIN
 
 */
 
+use std::fs::File;
+use std::io::Read;
+
+mod parser;
+
+use parser::{Result, parse_table};
+
 fn main() {
-    println!("Hello, world!");
+    let files = [
+        "../A091-E093/OMGAUDIO/01TREE01.DAT",
+        "../A091-E093/OMGAUDIO/01TREE02.DAT",
+        "../A091-E093/OMGAUDIO/01TREE03.DAT",
+        "../A091-E093/OMGAUDIO/01TREE04.DAT",
+    ];
+    for file in &files {
+        println!("***");
+        if let Err(error) = drive(file) {
+            println!("Error: {}", error);
+        }
+    }
+}
+
+fn drive(filename: &str) -> Result<()> {
+    let mut file = File::open(filename)
+        .map_err(|err| err.to_string())?;
+    let mut buffer =  vec![];
+    file.read_to_end(&mut buffer)
+        .map_err(|err| err.to_string())?;
+    let table = parse_table(&buffer)?;
+    println!("{}", String::from_utf8_lossy(&table.name));
+    println!("{}", table.class_count);
+
+    println!("{}", String::from_utf8_lossy(&table.class_descriptions[0].name));
+    println!("{}", table.class_descriptions[0].address);
+    println!("{}", table.class_descriptions[0].len);
+    println!("{}", String::from_utf8_lossy(&table.class_descriptions[1].name));
+    println!("{}", table.class_descriptions[1].address);
+    println!("{}", table.class_descriptions[1].len);
+
+    println!("{}", String::from_utf8_lossy(&table.classes[0].name));
+    println!("{}", &table.classes[0].element_count);
+    println!("{}", &table.classes[0].element_length);
+    println!("{}", String::from_utf8_lossy(&table.classes[1].name));
+    println!("{}", &table.classes[1].element_count);
+    println!("{}", &table.classes[1].element_length);
+    Ok(())
 }
