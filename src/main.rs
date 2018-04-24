@@ -105,6 +105,8 @@ fn main() {
         "../A091-E093/OMGAUDIO/01TREE02.DAT",
         "../A091-E093/OMGAUDIO/01TREE03.DAT",
         "../A091-E093/OMGAUDIO/01TREE04.DAT",
+        "../A091-E093/OMGAUDIO/02TREINF.DAT",
+        "../A091-E093/OMGAUDIO/03GINF01.DAT",
     ];
     for file in &files {
         println!("***");
@@ -127,15 +129,19 @@ fn drive(filename: &str) -> Result<()> {
     println!("{}", String::from_utf8_lossy(&table.class_descriptions[0].name));
     println!("{}", table.class_descriptions[0].address);
     println!("{}", table.class_descriptions[0].len);
-    println!("{}", String::from_utf8_lossy(&table.class_descriptions[1].name));
-    println!("{}", table.class_descriptions[1].address);
-    println!("{}", table.class_descriptions[1].len);
+    if table.class_descriptions.len() > 1 {
+        println!("{}", String::from_utf8_lossy(&table.class_descriptions[1].name));
+        println!("{}", table.class_descriptions[1].address);
+        println!("{}", table.class_descriptions[1].len);
+    }
 
     println!("{}", String::from_utf8_lossy(&table.classes[0].name));
     println!("{}", &table.classes[0].element_count);
     println!("{}", &table.classes[0].element_length);
-    println!("{}", String::from_utf8_lossy(&table.classes[1].name));
-    println!("{}", &table.classes[1].element_count);
-    println!("{}", &table.classes[1].element_length);
+    if table.classes.len() > 1 {
+        println!("{}", String::from_utf8_lossy(&table.classes[1].name));
+        println!("{}", &table.classes[1].element_count);
+        println!("{}", &table.classes[1].element_length);
+    }
     Ok(())
 }

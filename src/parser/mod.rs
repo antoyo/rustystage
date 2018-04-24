@@ -59,6 +59,8 @@ pub struct ClassDescription {
 
 pub enum ClassKind {
     Gplb(Vec<GplbElement>),
+    Gpfb(),
+    Gtfb(),
     Tplb(Vec<TplbElement>),
 }
 
@@ -151,6 +153,51 @@ impl<'a> Parser<'a> {
                 }
                 Ok(ClassKind::Tplb(elements))
             },
+            b"GTFB" => {
+                let _global_key = self.take(12)?.to_vec();
+                let _contains_one_subsection = self.u16()?;
+                let _subsection_length = self.u16()?;
+                // TODO
+                Ok(ClassKind::Gtfb())
+            },
+            b"GPFB" => {
+                let _magic_key = self.take(8)?.to_vec();
+                let _album_key = self.u32()?;
+                let _count_size = self.u32()?;
+
+                self.u32()?; // FIXME: should not be necessary.
+                self.u32()?; // FIXME: should not be necessary.
+                self.eat(b"TIT2")?;
+                self.u16()?;
+                let album_name = self.take(122)?.to_vec();
+                println!("{}", String::from_utf8_lossy(&album_name));
+
+                self.eat(b"TPE1")?;
+                self.u16()?;
+                let artist_name = self.take(122)?.to_vec();
+                println!("{}", String::from_utf8_lossy(&artist_name));
+
+                self.eat(b"TCON")?;
+                self.u16()?;
+                let genre = self.take(122)?.to_vec();
+                println!("{}", String::from_utf8_lossy(&genre));
+
+                self.eat(b"TSOP")?;
+                self.u16()?;
+                let _un1 = self.take(122)?.to_vec();
+
+                self.eat(b"PICP")?;
+                self.u16()?;
+                let _un2 = self.take(122)?.to_vec();
+
+                self.eat(b"PIC0")?;
+                self.u16()?;
+                let _un3 = self.take(122)?.to_vec();
+
+                // TODO
+
+                Ok(ClassKind::Gpfb())
+            },
             _ => Err(format!("Unknown class kind {}", String::from_utf8_lossy(name))),
         }
     }
@@ -177,6 +224,16 @@ impl<'a> Parser<'a> {
         })
     }
 
+    fn eat(&mut self, bytes: &[u8]) -> Result<()> {
+        let actual = self.take(bytes.len())?;
+        if bytes == actual {
+            Ok(())
+        }
+        else {
+            Err(format!("Expected bytes {:?}, actual bytes {:?}", bytes, actual))
+        }
+    }
+
     fn eat_u32(&mut self, num: u32) -> Result<()> {
         let bytes = self.take(4)?;
         let actual = (bytes[0] as u32) << 24 | (bytes[1] as u32) << 16 | (bytes[2] as u32) << 8 | bytes[3] as u32;
@@ -200,8 +257,8 @@ impl<'a> Parser<'a> {
     }
 
     fn u16(&mut self) -> Result<u16> {
-        let bytes = self.take(4)?;
-        Ok((bytes[2] as u16) << 8 | bytes[3] as u16)
+        let bytes = self.take(2)?;
+        Ok((bytes[0] as u16) << 8 | bytes[1] as u16)
     }
 
     fn u32(&mut self) -> Result<u32> {
@@ -1033,7 +1090,26 @@ from X + 662 to X + 784	122 bytes
 
 
 ### Explanation
-This file contains the historic of albums uploaded at each music update. See example for good explaination. Element may be not used, it corresponding to albums that have been removed from the player. It's blank element, they will be overwritten at the next music update. Blank element have an album_key egals to zero.				Example with historic showed at the right : Element 1 : Take My Head (album_key = 0x26d12) Element 2 : Amnesic (album_key = 4d691) Element 3 : Noise (album_key = 45883) Element 4 : Take My Head (album_key = 59e5b)	Title historic : 1st music update : Archive – Take My Head – 01 – You make me feel (title_key = 0x26d12) Radiohead – Amnesiac – 02 – Pyramid song (title_key = 0x24a81) Radiohead – Amnesiac – 05 – I migth be wrong (title_key = 0x28c10) 2nd music update: Archive – Noise – 02 – Fuck U (title_key = 0x245f8) Archive – Noise – 03 – Waste (title_key = 0x2128b) Archive – Take My Head – 02 – The way you love me (title_key = 0x30c85) Archive – Take My Head – 07 – Cloud in the sky  (title_key = 0x291db) 
+This file contains the historic of albums uploaded at each music update.
+See example for good explaination.
+Element may be not used, it corresponding to albums that have been removed from the player.
+It's blank element, they will be overwritten at the next music update.
+Blank element have an album_key egals to zero.
+Example with historic showed at the right :
+Element 1 : Take My Head (album_key = 0x26d12)
+Element 2 : Amnesic (album_key = 4d691)
+Element 3 : Noise (album_key = 45883)
+Element 4 : Take My Head (album_key = 59e5b)
+Title historic :
+1st music update :
+Archive – Take My Head – 01 – You make me feel (title_key = 0x26d12)
+Radiohead – Amnesiac – 02 – Pyramid song (title_key = 0x24a81)
+Radiohead – Amnesiac – 05 – I migth be wrong (title_key = 0x28c10)
+2nd music update:
+Archive – Noise – 02 – Fuck U (title_key = 0x245f8)
+Archive – Noise – 03 – Waste (title_key = 0x2128b)
+Archive – Take My Head – 02 – The way you love me (title_key = 0x30c85)
+Archive – Take My Head – 07 – Cloud in the sky  (title_key = 0x291db)
 
 
 ### Adding titles
